@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import math
 import os
-from Runge_Kutta4 import *
+from ODE_solvers import *
 
 
 class TEST_Cannon_System_Parameters:
@@ -25,12 +25,16 @@ class TEST_Cannon_System_Parameters:
 
     def __init__(self):
         # Перезапись параметров из файла с исходными данными для дальнейшего анализа:
-        ds = pd.read_csv('test_data.csv.csv', skiprows=[10]).set_index('var').to_dict()
+        ds = pd.read_csv('test_data.csv', skiprows=[10]).set_index('var').to_dict()
         # Чтение файла "test_data.csv":
         self.__dict__.update(ds["value"].to_dict())
 
-        self.v_pm = None # дульная скорость снаряда, м/с
-        self.p_a_max = None # допустимое максимальное давление в канале ствола, Па
+        self.v_pm = 770 # дульная скорость снаряда, м/с
+        self.p_a_max = 290e6 # допустимое максимальное давление в канале ствола, Па
+        self.f = 1e6 # сила условного пороха, Дж/кг
+        self.hi = 1.25 #
+
+        self.dksi = 1e-3
 
         self.Delta = np.arange(500, 875, 25)  # диапазон варьирования плотности заряжания, кг/м³
 
@@ -65,6 +69,7 @@ class Math_Model:
     # класс, реализующий математическую модель приближенного решения ПЗВБ
 
     def __init__(self, parameters):
+        self.dx_dksi = None
         self.p = parameters
         self.p.derived_parameters()
 
@@ -77,10 +82,62 @@ class Math_Model:
         return numerator / denominator
 
     def psi_s(self):
-        # метод вычисления значения функции газоприхода в момент распада порохового зерна (для семиканального пороха):
+        # метод вычисления относительной массы сгоревшей части заряда в момент распада порохового зерна:
         return self.p.kappa_1*(1 + self.p.lambda_1)
 
     def psi_0(self):
+        # метод вычисления относительной массы сгоревшей части заряда в момент форсирования:
         numerator = self.p.p_0/self.p.f * (1/self.p.Delta_m - 1/8 - self.p.b*self.dzeta()) - self.dzeta()
         denominator = 1 - (self.p.p_0/self.p.f)*((1-self.p.b*self.p.delta)/self.p.delta)
         return numerator / denominator
+
+    def z_0(self):
+        # метод вычисления толщины сгоревшего свода порохового элемента в момент форсирования:
+        numerator = 2*self.psi_0()
+        denominator = self.p.kappa_1*(1 + (1 + (4*self.p.lambda_1*self.psi_0()/self.p.kappa_1))**(1/2))
+        return numerator / denominator
+
+    def sigma_1(self):
+        # метод вычисления относительной площади поверхности горения в момент форсирования:
+        return 1 + 2*self.p.lambda_1*self.z_0()
+
+    def ksi_s(self):
+        # метод вычисления толщины сгоревшего свода порохового элемента от начала движения снаряда, до момента распада зерна:
+        return 1 - self.z_0()
+
+    # Пиродинамический период:
+    # ξ - шаг интегрирования
+    # x[0] - Lambda, то есть приведённый путь снаряда по каналу ствола
+
+    def ODE(self, ksi, x):
+        # метод записи интегрального уравнения пиродинамического периода:
+        self.dx_dksi = np.zeros(1)
+        self.dx_dksi[0] = ksi*self.p.f*self.p.Delta_m*self.p.B_m/self.p_m(ksi, x) # производная
+        return self.dx_dksi
+
+    def eta_r(self, ksi):
+        # метод вычисления термического КПД:
+        return (self.p.k - 1)/2 *self.p.B_m*ksi
+
+    def p_m(self, ksi, x):
+        # метод вычисления среднего баллистического давления:
+        numerator = + self.dzeta() - self.eta_r(ksi)
+        denominator = (1 + x[0])/self.p.Delta_m - 1/self.p.delta + (1 - self.p.b*self.p.delta)/self.p.delta - self.p.b*self.dzeta()
+        return self.p.f*numerator/denominator
+
+    def psi_ksi(self, ksi, x):
+        # метод вычисления относительной массы сгоревшей части заряда в пиродинамическрм периоде:
+        before_decay = self.psi_0() + self.p.kappa_1*self.sigma_1()*ksi + self.p.kappa_1*self.p.lambda_1*ksi**2
+        after_decay = self.psi_s() + self.p.kappa_2*(ksi - self.ksi_s())*(1 + self.p.lambda_2*(ksi - self.ksi_s()))
+        return before_decay + after_decay
+
+    def init_conditions(self):
+        # метод возврата списка начальных условий:
+        return [0]
+
+    def end_conditions(self):
+        # метод конечных условий, реализующий вычисление толщины сгоревшего свода порохового элемента от начала движения снаряда, до момента сгорания зерна:
+        return self.p.z_e - self.z_0()
+
+    def report(self):
+        return [self.p.B_m, ]
