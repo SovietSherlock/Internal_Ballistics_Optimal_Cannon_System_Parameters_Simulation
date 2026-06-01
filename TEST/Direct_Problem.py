@@ -140,7 +140,7 @@ class Math_Model:
         return self.p.z_e - self.z_0()
 
     def report(self, ksi, x):
-        return [self.p.B_m, self.p.Delta_m, self.p_m(ksi, x)]
+        return [self.p.B_m, self.p.Delta_m, self.p_m(ksi, x), self.eta_r(ksi), self.psi_ksi(ksi, x)]
 
     # Период адиабатического расширения:
 
@@ -163,6 +163,39 @@ class Simulation:
     def __init__(self, model: Math_Model):
         self.m = model
 
-        result_pyrodynamic = RungeKutta4(self.m.ODE, self.m.init_conditions(), self.m.end_conditions, self.m.report, self.m.p.dksi, 0, 10000)
+        # Получение значений параметров на пиростатическом периоде:
+        result_pyrodynamic = RungeKutta4(self.m.ODE, self.m.init_conditions(), self.m.end_conditions(), self.m.report, self.m.p.dksi, 0, 10000)
 
-        self.df = pd.DataFrame(result_pyrodynamic, columns=['ksi', 'Lambda', 'B', 'Delta', 'p_m'])
+        pd.set_option('display.precision', 5)
+
+        self.df = pd.DataFrame(result_pyrodynamic, columns=['ksi', 'Lambda', 'B', 'Delta', 'p_m', 'eta_r', 'psi_ksi'])
+
+        # Получение значений параметров на адиабатическом периоде:
+        powder_burnout = self.df.iloc[-1] # условие момента полного выгорания порохового зерна
+        Lambda_e = powder_burnout['Lambda'] # значение приведённого пути снаряда по каналу ствола в момент полного выгорания порохового зерна
+        p_m_e = powder_burnout['p_m'] # значение среднего баллистического давление в момент полного выгорания порохового зерна
+        eta_r_e = powder_burnout['eta_r'] # значение параметра относительного положения снаряда в канале ствола в момент полного выгорания порохового зерна
+        ksi_e = powder_burnout['ksi'] # значение толщины сгоревшего свода порохового элемента в момент полного выгорания порохового зерна
+        psi_e = powder_burnout['psi_ksi'] # значение массы сгоревшей части заряда в момент полного выгорания порохового зерна
+
+        Lambda_m = Lambda_e/self.m.p.eta_e_m # приведённый путь снаряда по каналу ствола в момент вылета снаряда из канала ствола
+
+        # Проверка на полное выгорание пороха внутри ствола:
+        if Lambda_m > Lambda_e:
+            Lambda_values = np.arange(Lambda_e, Lambda_m, self.m.p.dksi)
+
+            results_adiabatic = []
+            for Lambda in Lambda_values:
+                p_m_adiabatic = self.m.p_m_adiabatic(Lambda, Lambda_e, p_m_e)
+                eta_r_adiabatic = self.m.eta_r_adiabatic(Lambda, Lambda_e, eta_r_e)
+
+                results_adiabatic.append([ksi_e, Lambda_m, self.m.p.B_m, self.m.p.Delta_m, p_m_adiabatic, eta_r_adiabatic, psi_e])
+
+            self.df_1 = pd.DataFrame(results_adiabatic,  columns=['ksi', 'Lambda', 'B', 'Delta', 'p_m', 'eta_r', 'psi_ksi'])
+
+            # Объединение таблиц для пиродинамического и адиабатического периодов в одну:
+            self.df = pd.concat([self.df, self.df_1], ignore_index=True)
+
+        else:
+            print("Не произошло полного выгорания порохового зерна внутри канала ствола")
+
