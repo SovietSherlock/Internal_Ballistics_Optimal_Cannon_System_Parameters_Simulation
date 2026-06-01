@@ -139,5 +139,25 @@ class Math_Model:
         # метод конечных условий, реализующий вычисление толщины сгоревшего свода порохового элемента от начала движения снаряда, до момента сгорания зерна:
         return self.p.z_e - self.z_0()
 
-    def report(self):
-        return [self.p.B_m, ]
+    def report(self, ksi, x):
+        return [self.p.B_m, self.p.Delta_m, self.p_m(ksi, x)]
+
+    # Период адиабатического расширения:
+
+    def Lambda_e(self):
+        # метод вычисления значения приведенного пути по каналу ствола в момент полного сгорания порохового зерна
+        return
+
+    def eta_r_e(self, ksi):
+        # метод вычисления значения термического КПД в момент полного сгорания порохового зерна
+        return
+
+    def eta_r_adiabatic(self, ksi, x):
+        # метод вычисления термического КПД для адиабатического периода:
+        numerator = 1 - self.p.b*self.p.Delta_m*(1 + self.p.dzeta) + self.Lambda_e
+        denominator =
+        return
+
+    def p_m_adiabatic(self, ksi, x):
+        # метод вычисления среднего баллистического давления для адиабатического периода:
+        return
