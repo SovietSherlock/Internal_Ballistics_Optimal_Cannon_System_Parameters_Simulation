@@ -144,20 +144,25 @@ class Math_Model:
 
     # Период адиабатического расширения:
 
-    def Lambda_e(self):
-        # метод вычисления значения приведенного пути по каналу ствола в момент полного сгорания порохового зерна
-        return
-
-    def eta_r_e(self, ksi):
-        # метод вычисления значения термического КПД в момент полного сгорания порохового зерна
-        return
-
-    def eta_r_adiabatic(self, ksi, x):
+    def eta_r_adiabatic(self, Lambda, Lambda_e, eta_r_e):
         # метод вычисления термического КПД для адиабатического периода:
-        numerator = 1 - self.p.b*self.p.Delta_m*(1 + self.p.dzeta) + self.Lambda_e
-        denominator =
-        return
+        numerator = 1 - self.p.b*self.p.Delta_m*(1 + self.p.dzeta) + Lambda_e
+        denominator = 1 - self.p.b*self.p.Delta_m*(1 + self.p.dzeta) + Lambda
+        return 1 + self.p.dzeta - (1 + self.p.dzeta - eta_r_e)*numerator/denominator
 
-    def p_m_adiabatic(self, ksi, x):
+    def p_m_adiabatic(self, Lambda, Lambda_e, p_m_e):
         # метод вычисления среднего баллистического давления для адиабатического периода:
-        return
+        numerator = 1 - self.p.b*self.p.Delta_m*(1 + self.p.dzeta) + Lambda_e
+        denominator = 1 - self.p.b*self.p.Delta_m*(1 + self.p.dzeta) + Lambda
+        return p_m_e*numerator/denominator
+
+
+class Simulation:
+    # Класс получения приближенных решений прямой задачи внутренней баллистики:
+
+    def __init__(self, model: Math_Model):
+        self.m = model
+
+        result_pyrodynamic = RungeKutta4(self.m.ODE, self.m.init_conditions(), self.m.end_conditions, self.m.report, self.m.p.dksi, 0, 10000)
+
+        self.df = pd.DataFrame(result_pyrodynamic, columns=['ksi', 'Lambda', 'B', 'Delta', 'p_m'])
