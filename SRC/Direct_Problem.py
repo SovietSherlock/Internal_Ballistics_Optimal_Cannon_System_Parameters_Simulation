@@ -412,8 +412,7 @@ class Required_Pressure_Rate_Table:
         return None, None, None, None
 
     def interpolate_B(self, B_left, B_right, p_left, p_right, target_pmax):
-
-        # p_left > p_right
+        # p_left > p_right:
         t = (target_pmax - p_left) / (p_right - p_left)
         B_target = B_left + t * (B_right - B_left)
         return B_target
