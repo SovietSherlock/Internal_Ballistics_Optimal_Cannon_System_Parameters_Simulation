@@ -574,18 +574,13 @@ class Plotter_Pressure_Rate_Table:
     # класс вывода диаграммы баллистических решений в координатах (Δ, B) = p_max
 
     def __init__(self, params: Cannon_System_Parameters, pressure_table: pd.DataFrame):
-        """
-        params: объект с параметрами
-        pressure_table: таблица давлений из Pressure_Rate_Table (индексы - B, столбцы - Δ)
-        """
+
         self.params = params
         self.pressure_table = pressure_table
 
     def plot_scatter(self, save=False, filename='Pressure_Scatter.png'):
-        """
-        Построение точечной диаграммы зависимости p_max от Δ и B
-        Значения выше p_a_max не отображаются
-        """
+        # Построение точечной диаграммы зависимости p_max от Δ и B
+
         # Настройка шрифтов
         plt.rcParams['font.family'] = 'Times New Roman'
         plt.rcParams['font.size'] = 20
