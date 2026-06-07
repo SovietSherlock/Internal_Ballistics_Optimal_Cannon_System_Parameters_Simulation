@@ -304,6 +304,104 @@ class Ballistics_Solutions_Tables:
 
             print(f"Таблица сохранена: {filepath}")
 
+    def plot_optimization_diagram(self, save=False, filename='Optimization_Diagram.png'):
+        """
+        Построение диаграммы баллистических решений в координатах (ω/q, Δ)
+        с отмеченными точками минимума W_b/d³ и максимума C_Sl
+        """
+        # Настройка шрифтов
+        plt.rcParams['font.family'] = 'Times New Roman'
+        plt.rcParams['font.size'] = 20
+        plt.rcParams['mathtext.fontset'] = 'custom'
+        plt.rcParams['mathtext.rm'] = 'Times New Roman'
+        plt.rcParams['mathtext.it'] = 'Times New Roman:italic'
+
+        # Размер фигуры 10x10 дюймов
+        fig, ax = plt.subplots(figsize=(12, 10), facecolor=(1, 1, 1))
+
+        # Параметры маркеров
+        m = 'o'  # маркер - кружок
+        ms = 256  # размер маркера
+        mec = 'k'  # цвет обводки маркера
+
+        # Сбор данных для всех точек
+        omega_q_all = []
+        Delta_all = []
+        C_Sl_all = []
+        W_b_all = []
+
+        for i, Delta_val in enumerate(self.Delta_values):
+            for j, eta_val in enumerate(self.eta_e_values):
+                omega_q_val = self.omega_q_table[j, i]
+                W_b_val = self.W_b_d3_table[j, i]
+                C_Sl_val = self.C_Sl_table[j, i]
+
+                if pd.notna(omega_q_val) and pd.notna(Delta_val):
+                    omega_q_all.append(omega_q_val)
+                    Delta_all.append(Delta_val)
+                    C_Sl_all.append(C_Sl_val)
+                    W_b_all.append(W_b_val)
+
+        omega_q_all = np.array(omega_q_all)
+        Delta_all = np.array(Delta_all)
+        C_Sl_all = np.array(C_Sl_all)
+        W_b_all = np.array(W_b_all)
+
+        # Все точки с цветовой дифференциацией по C_Sl
+        sc = ax.scatter(omega_q_all, Delta_all, c=C_Sl_all,
+                        cmap=plt.cm.RdYlBu.reversed(), marker=m,
+                        s=ms, edgecolor=mec, vmin=0)
+
+        # Нахождение и отметка точки с максимальным C_Sl
+        max_C_Sl_idx = np.nanargmax(C_Sl_all)
+        omega_q_max_C = omega_q_all[max_C_Sl_idx]
+        Delta_max_C = Delta_all[max_C_Sl_idx]
+        max_C_val = C_Sl_all[max_C_Sl_idx]
+
+        ax.scatter(omega_q_max_C, Delta_max_C, marker='*', s=256,
+                   c='gold', edgecolor='k', linewidth=1,
+                   label=f'max $C_{{Sl}}$ = {max_C_val:.4f}')
+
+        # Нахождение и отметка точки с минимальным W_b/d³
+        min_W_b_idx = np.nanargmin(W_b_all)
+        omega_q_min_W = omega_q_all[min_W_b_idx]
+        Delta_min_W = Delta_all[min_W_b_idx]
+        min_W_val = W_b_all[min_W_b_idx]
+
+        ax.scatter(omega_q_min_W, Delta_min_W, marker='*', s=256,
+                   c='lime', edgecolor='k', linewidth=1,
+                   label=f'min $W_b/d^3$ = {min_W_val:.4f}')
+
+        # Цветовая шкала
+        cb = plt.colorbar(sc, ax=ax, shrink=0.8)
+        cb.set_label('$C_{Sl}$', fontsize=20, fontname='Times New Roman')
+        cb.ax.tick_params(labelsize=16)
+
+        # Настройка осей
+        ax.set_xlabel('$\\omega/q$', fontsize=20, fontname='Times New Roman')
+        ax.set_ylabel('$\\Delta$, кг/м$^3$', fontsize=20, fontname='Times New Roman')
+        ax.set_title('Баллистические решения обратной задачи', fontsize=22, fontname='Times New Roman')
+
+        # Толщина осей 2 пункта
+        for spine in ax.spines.values():
+            spine.set_linewidth(2)
+
+        ax.tick_params(axis='both', width=2, length=6, labelsize=16)
+
+        # Легенда
+        ax.legend(loc='best', fontsize=14, frameon=True, fancybox=True, shadow=True)
+
+        plt.tight_layout()
+
+        if save:
+            os.makedirs('results/Inverse_Problem', exist_ok=True)
+            filepath = os.path.join('results/Inverse_Problem', filename)
+            plt.savefig(filepath, dpi=300, bbox_inches='tight')
+            print(f"Диаграмма сохранена в файл: {filepath}")
+
+        plt.show()
+        return fig, ax
+
 
 # ============================================================================
 # ОСНОВНОЙ КОД
@@ -322,5 +420,8 @@ if __name__ == "__main__":
 
     # Сохранение всех таблиц
     bst.save_all_tables()
+
+    # Построение диаграммы оптимизации
+    bst.plot_optimization_diagram(save=True, filename='Optimization_Diagram.png')
 
     print("\nРабота программы завершена.")

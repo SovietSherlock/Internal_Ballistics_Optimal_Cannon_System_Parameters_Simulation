@@ -186,7 +186,7 @@ class Math_Model:
     def I_e(self, eta_r_m):
         # метод вычисления импульса пороха:
         phi = self.p.K + 1 / 3 * self.omega_q(eta_r_m)*self.p.q * (1 + self.dzeta()) / self.p.q
-        numerator = (self.p.f*self.omega_q(eta_r_m)*self.p.q**2*phi*self.p.B_m)
+        numerator = (self.p.f*self.omega_q(eta_r_m)*self.p.q**2*phi*self.p.B_m)**(1/2)
         denominator = self.p.n_s * math.pi * self.p.d ** 2 / 4
         return numerator / denominator
 
