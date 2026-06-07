@@ -190,6 +190,20 @@ class Math_Model:
         denominator = self.p.n_s * math.pi * self.p.d ** 2 / 4
         return numerator / denominator
 
+    def W_b(self, Lambda_m, eta_r_m):
+        # метод вычисления суммарного объема канала ствола:
+        S = self.p.n_s * math.pi * self.p.d ** 2 / 4
+        return self.W_0(eta_r_m) + self.l_m(Lambda_m, eta_r_m)*S
+
+    def C_Sl(self, Lambda_m, eta_r_m):
+        # метод вычисления метрики критерия Слухоцкого:
+        S = self.p.n_s * math.pi * self.p.d ** 2 / 4
+        l_0 = self.W_0(eta_r_m) / S
+        l_st = self.l_m(Lambda_m, eta_r_m) + l_0/self.p.hi + 1.5*self.p.d
+        numerator = 1e6 * (1 + Lambda_m)**(1/2)
+        denominator = (l_st/self.p.d)**4 * (self.omega_q(eta_r_m))**(3/2)
+        return numerator / denominator
+
 
 class Simulation:
     # Класс получения приближенных решений прямой задачи внутренней баллистики:
