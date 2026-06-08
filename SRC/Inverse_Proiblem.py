@@ -787,6 +787,130 @@ class Individual_Ballistics_Solutions:
         for powder in self.powders_data:
             self.plot_individual_optimization_diagram(powder['name'], save=save)
 
+    def display_max_C_Sl_table(self):
+        """Вывод таблицы для каждой марки пороха значений параметров в точке максимума C_Sl"""
+        print("\n" + "=" * 100)
+        print("ТАБЛИЦА ПАРАМЕТРОВ В ТОЧКЕ МАКСИМУМА C_Sl ДЛЯ КАЖДОЙ МАРКИ ПОРОХА")
+        print("=" * 100)
+
+        # Список для сбора данных
+        data = []
+
+        for powder_result in self.powders_results:
+            powder_name = powder_result['powder']
+            results = powder_result['results']
+
+            # Находим результат с максимальным C_Sl
+            max_C_Sl_idx = -1
+            max_C_Sl_val = -np.inf
+            best_result = None
+
+            for idx, result in enumerate(results):
+                if result['C_Sl'] > max_C_Sl_val:
+                    max_C_Sl_val = result['C_Sl']
+                    max_C_Sl_idx = idx
+                    best_result = result
+
+            if best_result is not None:
+                # Добавляем данные в список
+                data.append({
+                    'Марка пороха': powder_name,
+                    'Δ, кг/м³': best_result['Delta'],
+                    'η_e': best_result['eta_e'],
+                    'B_a': best_result['B_a'],
+                    'ω/q': best_result['omega_q'],
+                    'W_0/d³': best_result['W_0'] / (self.params.d ** 3),
+                    'l_m/d': best_result['l_m'] / self.params.d,
+                    'p_max, МПа': best_result['p_m_m'],
+                    'v_pm, м/с': self.params.v_pm,  # дульная скорость из параметров
+                    'C_Sl': best_result['C_Sl']
+                })
+
+                print(f"\n--- {powder_name} ---")
+                print(f"  Δ       = {best_result['Delta']:.0f} кг/м³")
+                print(f"  η_e     = {best_result['eta_e']:.2f}")
+                print(f"  B_a     = {best_result['B_a']:.6f}")
+                print(f"  ω/q     = {best_result['omega_q']:.4f}")
+                print(f"  W_0/d³  = {best_result['W_0'] / (self.params.d ** 3):.4f}")
+                print(f"  l_m/d   = {best_result['l_m'] / self.params.d:.2f}")
+                print(f"  p_max   = {best_result['p_m_m']:.2f} МПа")
+                print(f"  v_pm    = {self.params.v_pm:.0f} м/с")
+                print(f"  C_Sl    = {best_result['C_Sl']:.4f}")
+
+        # Создаем DataFrame
+        df = pd.DataFrame(data)
+
+        print("\n" + "=" * 100)
+        print("СВОДНАЯ ТАБЛИЦА ПАРАМЕТРОВ В ТОЧКЕ МАКСИМУМА C_Sl")
+        print("=" * 100)
+
+        # Форматируем вывод
+        df_display = df.copy()
+        for col in df_display.columns:
+            if col not in ['Марка пороха']:
+                if col in ['Δ, кг/м³', 'η_e', 'B_a', 'ω/q', 'W_0/d³', 'C_Sl']:
+                    df_display[col] = df_display[col].apply(lambda x: f"{x:.4f}")
+                elif col in ['l_m/d']:
+                    df_display[col] = df_display[col].apply(lambda x: f"{x:.2f}")
+                elif col in ['p_max, МПа']:
+                    df_display[col] = df_display[col].apply(lambda x: f"{x:.2f}")
+                elif col in ['v_pm, м/с']:
+                    df_display[col] = df_display[col].apply(lambda x: f"{x:.0f}")
+
+        print(df_display.to_string(index=False))
+        print("=" * 100)
+
+        return df
+
+    def save_max_C_Sl_table(self, filename='Max_C_Sl_Parameters.csv'):
+        """Сохранение таблицы параметров в точке максимума C_Sl в CSV файл"""
+        if not self.powders_results:
+            print("Нет данных для сохранения")
+            return
+
+        os.makedirs('results/Inverse_Problem', exist_ok=True)
+
+        # Собираем данные
+        data = []
+        for powder_result in self.powders_results:
+            powder_name = powder_result['powder']
+            results = powder_result['results']
+
+            # Находим результат с максимальным C_Sl
+            max_C_Sl_val = -np.inf
+            best_result = None
+
+            for result in results:
+                if result['C_Sl'] > max_C_Sl_val:
+                    max_C_Sl_val = result['C_Sl']
+                    best_result = result
+
+            if best_result is not None:
+                data.append({
+                    'Марка пороха': powder_name,
+                    'Δ, кг/м³': best_result['Delta'],
+                    'η_e': best_result['eta_e'],
+                    'B_a': best_result['B_a'],
+                    'ω/q': best_result['omega_q'],
+                    'W_0/d³': best_result['W_0'] / (self.params.d ** 3),
+                    'l_m/d': best_result['l_m'] / self.params.d,
+                    'p_max, МПа': best_result['p_m_m'],
+                    'v_pm, м/с': self.params.v_pm,
+                    'C_Sl': best_result['C_Sl']
+                })
+
+        df = pd.DataFrame(data)
+        filepath = os.path.join('results/Inverse_Problem', filename)
+
+        # Сохранение с запятой как десятичным разделителем
+        df_comma = df.copy()
+        for col in df_comma.columns:
+            if col != 'Марка пороха':
+                df_comma[col] = df_comma[col].apply(lambda x: f"{x:.6f}".replace('.', ',') if pd.notna(x) else "")
+
+        df_comma.to_csv(filepath, index=False, encoding='utf-8-sig')
+        print(f"\nТаблица параметров в точке максимума C_Sl сохранена: {filepath}")
+
 
 # ============================================================================
 # ОСНОВНОЙ КОД
@@ -809,7 +933,6 @@ if __name__ == "__main__":
     # Построение диаграммы оптимизации
     bst.plot_optimization_diagram(save=True, filename='Optimization_Diagram.png')
 
-
     print("\n" + "=" * 80)
     print("РАСЧЕТ ДЛЯ ИНДИВИДУАЛЬНЫХ МАРОК ПОРОХОВ")
     print("=" * 80)
@@ -817,6 +940,10 @@ if __name__ == "__main__":
     ibs = Individual_Ballistics_Solutions()
     ibs.display_powders_table()
     ibs.save_powders_table()
+
+    # Вывод таблицы параметров в точке максимума C_Sl
+    ibs.display_max_C_Sl_table()
+    ibs.save_max_C_Sl_table()
 
     # Построение диаграмм для всех порохов
     ibs.plot_all_individual_diagrams(save=True)
