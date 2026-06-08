@@ -801,28 +801,33 @@ class Individual_Ballistics_Solutions:
             results = powder_result['results']
 
             # Находим результат с максимальным C_Sl
-            max_C_Sl_idx = -1
             max_C_Sl_val = -np.inf
             best_result = None
 
             for idx, result in enumerate(results):
                 if result['C_Sl'] > max_C_Sl_val:
                     max_C_Sl_val = result['C_Sl']
-                    max_C_Sl_idx = idx
                     best_result = result
 
             if best_result is not None:
-                # Добавляем данные в список
+                # Вычисляем реальные значения W_0 и l_m
+                d = self.params.d  # калибр, м
+                W_0_real = best_result['W_0']  # уже в м³ (из метода W_0)
+                l_m_real = best_result['l_m']  # уже в м (из метода l_m)
+
+                # p_max должно быть равно self.params.p_a_max / 1e6 (290 МПа)
+                p_max_target = self.params.p_a_max / 1e6
+
                 data.append({
                     'Марка пороха': powder_name,
                     'Δ, кг/м³': best_result['Delta'],
                     'η_e': best_result['eta_e'],
                     'B_a': best_result['B_a'],
                     'ω/q': best_result['omega_q'],
-                    'W_0/d³': best_result['W_0'] / (self.params.d ** 3),
-                    'l_m/d': best_result['l_m'] / self.params.d,
-                    'p_max, МПа': best_result['p_m_m'],
-                    'v_pm, м/с': self.params.v_pm,  # дульная скорость из параметров
+                    'W_0, м³': W_0_real,
+                    'l_m, м': l_m_real,
+                    'p_max, МПа': p_max_target,
+                    'v_pm, м/с': self.params.v_pm,
                     'C_Sl': best_result['C_Sl']
                 })
 
@@ -831,9 +836,9 @@ class Individual_Ballistics_Solutions:
                 print(f"  η_e     = {best_result['eta_e']:.2f}")
                 print(f"  B_a     = {best_result['B_a']:.6f}")
                 print(f"  ω/q     = {best_result['omega_q']:.4f}")
-                print(f"  W_0/d³  = {best_result['W_0'] / (self.params.d ** 3):.4f}")
-                print(f"  l_m/d   = {best_result['l_m'] / self.params.d:.2f}")
-                print(f"  p_max   = {best_result['p_m_m']:.2f} МПа")
+                print(f"  W_0     = {W_0_real:.6f} м³")
+                print(f"  l_m     = {l_m_real:.4f} м")
+                print(f"  p_max   = {p_max_target:.2f} МПа")
                 print(f"  v_pm    = {self.params.v_pm:.0f} м/с")
                 print(f"  C_Sl    = {best_result['C_Sl']:.4f}")
 
@@ -848,13 +853,13 @@ class Individual_Ballistics_Solutions:
         df_display = df.copy()
         for col in df_display.columns:
             if col not in ['Марка пороха']:
-                if col in ['Δ, кг/м³', 'η_e', 'B_a', 'ω/q', 'W_0/d³', 'C_Sl']:
+                if col in ['Δ, кг/м³', 'η_e', 'B_a', 'ω/q', 'C_Sl']:
                     df_display[col] = df_display[col].apply(lambda x: f"{x:.4f}")
-                elif col in ['l_m/d']:
-                    df_display[col] = df_display[col].apply(lambda x: f"{x:.2f}")
-                elif col in ['p_max, МПа']:
-                    df_display[col] = df_display[col].apply(lambda x: f"{x:.2f}")
-                elif col in ['v_pm, м/с']:
+                elif col in ['W_0, м³']:
+                    df_display[col] = df_display[col].apply(lambda x: f"{x:.6f}")
+                elif col in ['l_m, м']:
+                    df_display[col] = df_display[col].apply(lambda x: f"{x:.4f}")
+                elif col in ['p_max, МПа', 'v_pm, м/с']:
                     df_display[col] = df_display[col].apply(lambda x: f"{x:.0f}")
 
         print(df_display.to_string(index=False))
@@ -886,15 +891,20 @@ class Individual_Ballistics_Solutions:
                     best_result = result
 
             if best_result is not None:
+                # Вычисляем реальные значения W_0 и l_m
+                W_0_real = best_result['W_0']  # уже в м³
+                l_m_real = best_result['l_m']  # уже в м
+                p_max_target = self.params.p_a_max / 1e6
+
                 data.append({
                     'Марка пороха': powder_name,
                     'Δ, кг/м³': best_result['Delta'],
                     'η_e': best_result['eta_e'],
                     'B_a': best_result['B_a'],
                     'ω/q': best_result['omega_q'],
-                    'W_0/d³': best_result['W_0'] / (self.params.d ** 3),
-                    'l_m/d': best_result['l_m'] / self.params.d,
-                    'p_max, МПа': best_result['p_m_m'],
+                    'W_0, м³': W_0_real,
+                    'l_m, м': l_m_real,
+                    'p_max, МПа': p_max_target,
                     'v_pm, м/с': self.params.v_pm,
                     'C_Sl': best_result['C_Sl']
                 })
@@ -906,7 +916,12 @@ class Individual_Ballistics_Solutions:
         df_comma = df.copy()
         for col in df_comma.columns:
             if col != 'Марка пороха':
-                df_comma[col] = df_comma[col].apply(lambda x: f"{x:.6f}".replace('.', ',') if pd.notna(x) else "")
+                if col in ['W_0, м³']:
+                    df_comma[col] = df_comma[col].apply(lambda x: f"{x:.6f}".replace('.', ',') if pd.notna(x) else "")
+                elif col in ['l_m, м']:
+                    df_comma[col] = df_comma[col].apply(lambda x: f"{x:.4f}".replace('.', ',') if pd.notna(x) else "")
+                else:
+                    df_comma[col] = df_comma[col].apply(lambda x: f"{x:.6f}".replace('.', ',') if pd.notna(x) else "")
 
         df_comma.to_csv(filepath, index=False, encoding='utf-8-sig')
         print(f"\nТаблица параметров в точке максимума C_Sl сохранена: {filepath}")
